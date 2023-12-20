@@ -18,6 +18,7 @@
 import collections
 import datetime
 import gzip
+import os.path
 from pathlib import Path
 import sys
 import time
@@ -113,9 +114,7 @@ class KeepalivedLogParser(QDialog):
       self.progressBar.setValue(val)
 
    def selectPath(self):
-      startDir = '/tmp/must-gather.local.3258310539858554748/quay-io-openshift-release-dev-ocp-v4-0-art-dev-sha256-9792bae1ec1404e9f3609c1dfac3a2759347d54f3055be205a0ae66e81b935f2'
-      startDir = '/home/bnemec/Downloads/must-gather.local.8326037025744004318'
-      startDir = '/tmp'
+      startDir = os.path.expanduser('~')
       self.basePath = QFileDialog.getExistingDirectory(self, directory=startDir)
       self.run()
 
