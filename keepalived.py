@@ -64,7 +64,7 @@ class NodeData(object):
 
 class KeepalivedLogParser(QWidget):
    def __init__(self, parent = None):
-      QDialog.__init__(self, parent)
+      QWidget.__init__(self, parent)
       self.setAcceptDrops(True)
       self.logFiles = []
       self.logEntries = collections.OrderedDict()
