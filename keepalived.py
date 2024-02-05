@@ -24,7 +24,7 @@ import sys
 import time
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter
-from PyQt6.QtWidgets import QDialog, QApplication, QLineEdit, QHBoxLayout, QVBoxLayout, QPushButton, QFileDialog, QLabel, QFrame, QScrollArea, QErrorMessage, QProgressBar
+from PyQt6.QtWidgets import QWidget, QApplication, QLineEdit, QHBoxLayout, QVBoxLayout, QPushButton, QFileDialog, QLabel, QFrame, QScrollArea, QErrorMessage, QProgressBar
 
 platforms = ['kni', 'nutanix', 'openstack', 'ovirt', 'vsphere']
 namespaces = []
@@ -62,7 +62,7 @@ class NodeData(object):
       return f'{self.vipChanges} {self.events} {self.addrs}'
 
 
-class KeepalivedLogParser(QDialog):
+class KeepalivedLogParser(QWidget):
    def __init__(self, parent = None):
       QDialog.__init__(self, parent)
       self.setAcceptDrops(True)
