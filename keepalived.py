@@ -154,6 +154,7 @@ class KeepalivedLogParser(QWidget):
                         for r in rotatedPath.iterdir():
                            self.logFiles.append(r)
                      self.logFiles.append(podLogs.joinpath('current.log'))
+                     self.logFiles.append(podLogs.joinpath('current.insecure.log'))
       else:
          self.logFiles = [i for i in p.iterdir() if i.is_file()]
 
