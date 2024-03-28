@@ -158,6 +158,8 @@ class KeepalivedLogParser(QWidget):
       else:
          self.logFiles = [i for i in p.iterdir() if i.is_file()]
 
+      # Filter nonexistent files
+      self.logFiles = [i for i in self.logFiles if i.is_file()]
       self.logFiles = sorted(self.logFiles)
 
    def parseLogs(self):
