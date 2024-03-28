@@ -227,7 +227,7 @@ class KeepalivedLogParser(QWidget):
                   entry = LogEntry(timestamp, line, nodeAddress)
                   self.logEntries[name].append(entry)
 
-   def setEntryVip(self, entry, line):
+   def setEntryVip(self, entry: LogEntry, line: str):
       # LogEntry defaults to vip 0
       if 'API_1' in line:
          entry.vip = 1
@@ -272,6 +272,7 @@ class KeepalivedLogParser(QWidget):
       self.vipLabel.setText(f'VIPs: {self.vips[0]} {self.vips[1]} {self.vips[2]} {self.vips[3]}')
       # Node-specific values
       for node, data in self.nodeData.items():
+         print(node)
          nodeLayout = QHBoxLayout()
          nodeInfoLayout = QVBoxLayout()
          nameEdit = QLineEdit(node)
@@ -302,11 +303,18 @@ class KeepalivedLogParser(QWidget):
             vipLayout = QHBoxLayout()
             vipLayout.setSpacing(0)
             haveVip = False
-            for change in data.vipChanges[vip]:
-               addLabel(start, change, haveVip)
-               start = change
-               haveVip = not haveVip
-            addLabel(start, self.timeBounds[1], haveVip)
+            print(f'Processing {len(data.vipChanges[vip])} VIP changes')
+            if len(data.vipChanges[vip]) > 1000:
+               errorLabel = QLabel()
+               errorLabel.setStyleSheet('background-color: red;')
+               errorLabel.setText(f'ERROR Too many changes: {len(data.vipChanges[vip])}')
+               vipLayout.addWidget(errorLabel, int((self.timeBounds[1] - self.timeBounds[0]).total_seconds()))
+            else:
+               for change in data.vipChanges[vip]:
+                  addLabel(start, change, haveVip)
+                  start = change
+                  haveVip = not haveVip
+               addLabel(start, self.timeBounds[1], haveVip)
             timelineLayout.addLayout(vipLayout)
 
          def addEventLabel(start: datetime.datetime, entry: LogEntry):
@@ -325,6 +333,7 @@ class KeepalivedLogParser(QWidget):
          start = self.timeBounds[0]
          vipLayout = QHBoxLayout()
          vipLayout.setSpacing(0)
+         print(f'Processing {len(data.events)} events')
          for entry in data.events:
             addEventLabel(start, entry)
             start = entry.timestamp
