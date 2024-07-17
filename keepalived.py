@@ -21,10 +21,12 @@ import gzip
 import os.path
 from pathlib import Path
 import sys
+import tempfile
 import time
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter
 from PyQt6.QtWidgets import QWidget, QApplication, QLineEdit, QHBoxLayout, QVBoxLayout, QPushButton, QFileDialog, QLabel, QFrame, QScrollArea, QErrorMessage, QProgressBar
+from kubernetes import client, config
 
 platforms = ['kni', 'nutanix', 'openstack', 'ovirt', 'vsphere']
 namespaces = []
@@ -67,6 +69,7 @@ class KeepalivedLogParser(QWidget):
       QWidget.__init__(self, parent)
       self.setAcceptDrops(True)
       self.logFiles = []
+      self.tempDir = None
       self.logEntries = collections.OrderedDict()
       self.nodeData = collections.OrderedDict()
       # Earliest and latest timestamps in the logs
@@ -136,8 +139,18 @@ class KeepalivedLogParser(QWidget):
 
    def findLogs(self):
       p = Path(self.basePath)
-      topLevelDirs = [i for i in p.iterdir() if i.is_dir()]
       self.isMustGather = False
+      if p.is_file():
+         self.getLiveLogs(p)
+      else:
+         self.getFileLogs(p)
+
+      # Filter nonexistent files
+      self.logFiles = [i for i in self.logFiles if i.is_file()]
+      self.logFiles = sorted(self.logFiles)
+
+   def getFileLogs(self, p):
+      topLevelDirs = [i for i in p.iterdir() if i.is_dir()]
       for d in topLevelDirs:
          if d.name == 'namespaces':
             self.isMustGather = True
@@ -158,9 +171,26 @@ class KeepalivedLogParser(QWidget):
       else:
          self.logFiles = [i for i in p.iterdir() if i.is_file()]
 
-      # Filter nonexistent files
-      self.logFiles = [i for i in self.logFiles if i.is_file()]
-      self.logFiles = sorted(self.logFiles)
+   def getLiveLogs(self, p):
+      """ Read logs live from a cluster """
+      kubeconfig = str(p)
+      config.load_kube_config(kubeconfig)
+      v1 = client.CoreV1Api()
+      self.tempDir = tempfile.TemporaryDirectory()
+      tempPath = Path(self.tempDir.name)
+      for ns in namespaces:
+         pods = v1.list_namespaced_pod(ns)
+         # retrieve logs for pods
+         count = 0
+         self.progressBar.setRange(0, len(pods.items))
+         for pod in pods.items:
+            if 'keepalived' in pod.metadata.name:
+               self.setProgress(count, f'Retrieving logs for {pod.metadata.name}')
+               count += 1
+               logs = v1.read_namespaced_pod_log(pod.metadata.name, ns, container='keepalived', follow=False)
+               with open(tempPath / f'{pod.metadata.name}.log', 'w') as f:
+                  f.write(logs)
+      self.logFiles = [i for i in tempPath.iterdir() if i.is_file()]
 
    def parseLogs(self):
       self.progressBar.setRange(0, len(self.logFiles))
@@ -185,7 +215,11 @@ class KeepalivedLogParser(QWidget):
             smartopen = gzip.open
          with smartopen(f, 'rt') as handle:
             for line in handle:
-               timestamp = self.getTime(line)
+               try:
+                  timestamp = self.getTime(line)
+               except ValueError:
+                  # Ignore lines with invalid timestamps
+                  continue
                # Update start and end times if necessary
                if self.timeBounds[0] is None or timestamp < self.timeBounds[0]:
                   self.timeBounds[0] = timestamp
@@ -342,7 +376,11 @@ class KeepalivedLogParser(QWidget):
          timelineLayout.addLayout(vipLayout)
 
    def getTime(self, line: str) -> time.struct_time:
-      return datetime.datetime.fromisoformat(line.split()[0]).replace(microsecond=0)
+      try:
+         return datetime.datetime.fromisoformat(line.split()[0]).replace(microsecond=0)
+      except ValueError:
+         # Live logs use a different date format from must-gathers
+         return datetime.datetime.strptime(line.split(': ')[0], '%a %b %d %H:%M:%S %Y')
 
    def dragEnterEvent(self, event):
       if event.mimeData().hasFormat('text/plain'):
